@@ -29,6 +29,9 @@ const auth = (req, res, next) => {
     }
 }
 
+
+
+
 app.get("/", (req, res) => {
     return res.status(200).json({ text: "hello world" })
 })
@@ -41,14 +44,21 @@ app.post("/auth/signin", (req, res) => {
         // если нет, то 400
 
         if (!username || !password) {
-            return res.status(400).json({error: "Missing data"})
+            return res.status(400).json({ error: "Missing data" })
         }
 
-        const user = undefined // найти пользователя из бд
+        const user = db.prepare("SELECT * FROM users WHERE username =?").get(username)
+        if (!user) return res.status(401).json({ error: "Неправильный пароль" }) // найти пользователя из бд
         // Вернуть 401 если юзера нет
 
-        const valid = undefined // проверить через 
-        // функцию bcr.compareSync
+        const valid = bcr.compareSync(password, user.password) // проверить через 
+        if (!valid) return res.status(401).json({ error: "Неправильный пароль" })
+
+        const { password: _, ...safeUser } = user
+
+        const token = jwt.sign({ ...safeUser }, SECRET, { expiresIn: "24h" })
+        res.status(201).json({ success: true, token, user: safeUser })
+
     } catch (error) {
         console.error(error)
         return res.status(500).json({ error: "Something went wrong" })
@@ -149,5 +159,15 @@ app.post("/api/items", auth, (req, res) => {
         return res.status(500).json({ error: "Failed to create" })
     }
 })
+
+app.delete("/api/items/:id", auth, (reg, res) => {
+    try {
+        const{id} = req.params
+    } catch (error) {
+        console.error(error)
+        res.status(500).json({ error: "somthing went" })
+    }
+})
+
 
 app.listen(PORT)
